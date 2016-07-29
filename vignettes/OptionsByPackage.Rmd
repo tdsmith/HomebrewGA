@@ -1,0 +1,169 @@
+---
+title: "Options, by package"
+author: "Tim D. Smith"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_document
+vignette: >
+  %\VignetteIndexEntry{Options, by package}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+library(reshape2)
+library(viridis)
+
+library(HomebrewGA)
+invocations = fetch_install_invocations()
+popularity = popularity_by_package(invocations)
+opt_df = install_invocations_by_package(invocations)
+```
+
+# Top 100 packages
+
+Total `install` invocations for top 100 packages, with and without formula options given; bar length indicates number of installs:
+
+```{r popular_absolute, fig.height=10}
+x = function() {
+  sort_order = popularity %>% arrange(desc(n)) %>% head(100)
+  popular = opt_df %>% filter(package %in% sort_order$package)
+  popular %<>% inner_join(popularity) %>%
+    filter(option == "none") %>%
+    rename(without_option=count) %>%
+    mutate(with_option=n-without_option) %>%
+    melt(measure.vars=c("with_option", "without_option"),
+         variable.name="option_given",
+         value.name="count") %>%
+    mutate(option_given=relevel(option_given, "without_option"),
+           package = factor(package, levels=rev(sort_order$package))) %>%
+    arrange(option_given)
+  g = ggplot(popular, aes(package, count, fill=option_given)) +
+    geom_bar(stat="identity") +
+    coord_flip() +
+    theme_bw()
+  print(g)
+}
+x()
+```
+
+There are a few packages that are often installed with options; many of them offer `--universal` or multiple graphics backends.
+
+# Top 100 packages, relative proportion
+
+Relative proportion of `install` invocations with formula options given, for the top 100 packages; bar length indicates percentage of installs of each package:
+
+```{r popular_relative, fig.height=10}
+x = function() {
+  sort_order = popularity %>% arrange(desc(n)) %>% head(100)
+  popular = opt_df %>% filter(package %in% sort_order$package)
+  popular %<>%
+    inner_join(popularity) %>%
+    filter(option == "none") %>%
+    rename(without_option=count) %>%
+    mutate(without_option=without_option/n, with_option=1-without_option) %>%
+    melt(measure.vars=c("with_option", "without_option"),
+         variable.name="option_given",
+         value.name="count") %>%
+    mutate(option_given=relevel(option_given, "without_option"),
+           package = factor(package, levels=rev(sort_order$package))) %>%
+    arrange(option_given)
+
+  g = ggplot(popular, aes(package, count, fill=option_given)) +
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels=scales::percent) +
+    theme_bw() +
+    coord_flip()
+  print(g)
+}
+x()
+```
+
+# Fraction of installs with options vs. popularity
+
+More popular packages are less likely to have many popular options. I would guess this is because more popular packages are less likely to offer options, but I haven't checked.
+
+```{r n_downloads_vs_n_options_relative}
+x = function() {
+  options = opt_df %>%
+    inner_join(popularity) %>%
+    transform(fraction=count/n) %>%
+    filter(option == "none") %>%
+    mutate(fraction=1-fraction)
+  g = ggplot(options, aes(n, fraction)) +
+    geom_point(alpha=0.25) +
+    geom_density2d(h=c(1,0.1)) +
+    scale_x_log10() +
+    labs(x="Total package installs", y="Fraction of installs per package with options") +
+    theme_bw()
+  print(g)
+}
+x()
+```
+
+The blue density contours show that nearly all packages are relatively unpopular and have very few installs with options, which is otherwise hard to see because of overplotting.
+
+# Fraction of installs without options, by package
+
+This shows that most packages are never installed with options. A handful of packages are very commonly installed with options.
+
+```{r popularity_of_default_install_histogram}
+x = function() {
+  opt_df %<>%
+    inner_join(popularity) %>%
+    filter(option == "none") %>%
+    mutate(default_fraction=count/n)
+  g = ggplot(opt_df, aes(default_fraction)) +
+    geom_histogram(binwidth=0.05) +
+    scale_y_log10(breaks=c(1, 3, 10, 30, 100, 300, 1000, 3000, 10000)) +
+    labs(x="Fraction of installs without options", y="Number of packages") +
+    theme_bw()
+  print(g)
+}
+x()
+```
+
+Similarly, packages often have a small number of absolute installations with 
+
+```{r absolute_popularity_of_non_default_install_histogram}
+x = function() {
+  g = ggplot(opt_df %>% filter(option != "none"), aes(count, ..count..)) +
+    geom_freqpoly() +
+    scale_y_log10(breaks=c(1, 3, 10, 30, 100, 300, 1000, 3000, 10000)) +
+    labs(x="Number of installs with options, per package", y="Number of packages") +
+    theme_bw()
+  print(g)
+}
+x()
+```
+
+# Packages with popular options (top 100)
+
+The number on the left hand side indicates total popularity.
+
+```{r packages_often_installed_with_options, fig.height=10}
+x = function() {
+  overall_popularity = popularity %>% rename(overall=n)
+  merged = opt_df %>%
+    filter(option == "none") %>%
+    inner_join(overall_popularity) %>%
+    filter(overall >= 100) %>%
+    mutate(options_popularity=1-count/overall) %>%
+    arrange(desc(options_popularity)) %>%
+    head(100)
+  
+  merged$package %<>% factor(levels=rev(merged$package))
+  g = ggplot(merged, aes(options_popularity, package)) +
+    geom_point(aes(color=overall)) +
+    xlim(0, 1) +
+    geom_text(aes(size=overall, label=overall), x=0.1) +
+    scale_color_viridis(trans="log10", guide="none") +
+    scale_size_continuous(trans="log10", guide="none") +
+    theme_bw()
+  print(g)
+}
+x()
+```
