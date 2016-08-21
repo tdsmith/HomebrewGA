@@ -126,7 +126,7 @@ x = function() {
 x()
 ```
 
-Similarly, packages often have a small number of absolute installations with 
+Similarly, packages often have a small number of absolute installations with options.
 
 ```{r absolute_popularity_of_non_default_install_histogram}
 x = function() {
