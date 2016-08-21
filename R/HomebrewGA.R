@@ -23,6 +23,7 @@ fetch_install_invocations = function(start.date="30daysAgo") {
     samplingLevel="HIGHER_PRECISION",
     include.empty.rows="FALSE"
   )
+  # Fixed more holistically by https://github.com/Homebrew/brew/pull/659
   df$eventAction = stringr::str_replace(df$eventAction, "--c 11", "--c++11")
   df$eventAction = stringr::str_replace(df$eventAction, "gtk 3", "gtk+3")
   df
