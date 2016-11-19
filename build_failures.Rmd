@@ -1,0 +1,90 @@
+---
+title: "Build failures"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r setup}
+library(dplyr)
+library(ggplot2)
+library(ggvis)
+library(viridis)
+
+devtools::load_all(".")
+```
+
+```{r install_invocations}
+installs = fetch_install_invocations()
+summary(installs)
+```
+
+```{r popularity}
+popularity = popularity_by_package(installs)
+summary(popularity)
+```
+
+```{r build_errors}
+build_errors = fetch_build_errors()
+summary(build_errors)
+```
+
+```{r error_frequency}
+error_frequency = build_errors %>%
+  select(package=eventAction, totalEvents) %>%
+  group_by(package) %>%
+  summarize(failures=sum(totalEvents))
+
+popularity = left_join(popularity, error_frequency)
+summarize(popularity)
+```
+
+```{r raw_failure_scatter_interactive}
+popularity %>%
+  filter(!is.na(failures)) %>%
+  ggvis(~n, ~failures, key:=~package) %>%
+    layer_points() %>%
+    scale_numeric("x", trans="log", expand=0) %>%
+    add_tooltip(function(x) { paste(x$package) })
+```
+
+```{r raw_failure_scatter_static}
+popularity %>%
+  filter(!is.na(failures)) %>%
+  ggplot(aes(n, failures, label=package)) +
+    scale_x_log10() +
+    geom_text()
+```
+
+```{r failingest, fig.height=15, fig.width=5}
+g = popularity %>%
+  filter(n > 500) %>%
+  mutate(failed_fraction=failures/n) %>%
+  arrange(desc(failed_fraction)) %>%
+  head(100) %>%
+  mutate(package=factor(package, rev(package))) %>%
+  ggplot(aes(package, failed_fraction*100, fill=n)) +
+    geom_bar(stat="identity") +
+    scale_fill_viridis("Installs") +
+    labs(y="% of installs that fail") +
+    coord_flip()
+print(g)
+```
+
+```{r explore_xz}
+build_errors %>%
+  rename(package=eventAction) %>%
+  filter(package %in% c("xz", "python")) %>%
+  mutate(
+    os_version=normalize_macos_version(eventLabel) %>% major_minor,
+    default_prefix=factor(
+      grepl("non-/usr/local", eventLabel),
+      c(FALSE, TRUE),
+      c("Default", "Non-default"))
+  ) %>%
+  filter(sapply(os_version, compareVersion, "10.6") >= 0) %>%
+  ggplot(aes(package, totalEvents, fill=os_version)) +
+    facet_grid(package~default_prefix, scales="free") +
+    geom_bar(stat="identity", width=0.5) +
+    coord_flip()
+```
