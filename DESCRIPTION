@@ -7,9 +7,12 @@ Maintainer: Tim D. Smith <tim@brew.sh>
 Description: Analytics reports for Homebrew
 License: MIT + COPYING
 LazyData: TRUE
-Imports: RGA,
-    stringr
-Depends: dplyr
-Suggests: knitr,
+Imports:
+    RGA,
+    stringr,
+    dplyr
+Suggests:
+    knitr,
     rmarkdown
 VignetteBuilder: knitr
+RoxygenNote: 5.0.1

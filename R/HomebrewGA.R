@@ -1,9 +1,25 @@
+#' Google Analytics processing code for the Homebrew package manager.
+#'
+#' @docType package
+#' @name HomebrewGA
+#' @import dplyr
+NULL
+
+#' Google Analytics profile ID for the Homebrew profile.
+#' @keywords internal
 HOMEBREW_PROFILE_ID = "120682403"
 
 .onLoad = function(...) {
   authorize()
 }
 
+#' Authorize against the Google Apps API and cache the result.
+#'
+#' The authorization token is stored during each session in a hidden
+#' environment; see help for RGA::authorize for details. Uses a HomebrewGA
+#' application ID and secret.
+#' @seealso \code{\link[RGA]{authorize}}
+#' @export
 authorize = function() {
   RGA::authorize(
     cache=path.expand("~/.config/HomebrewGA"),
@@ -11,6 +27,8 @@ authorize = function() {
     client.secret="_jq5IxkGszRUhHW_hM0hoDzC")
 }
 
+#' Fetch from GA a list and count of unique `install` invocations.
+#' @export
 fetch_install_invocations = function(start.date="30daysAgo") {
   df = RGA::get_ga(
     profileId=HOMEBREW_PROFILE_ID,
@@ -29,12 +47,29 @@ fetch_install_invocations = function(start.date="30daysAgo") {
   df
 }
 
+#' Count the number of times each package was installed.
+#'
+#' Returns a data.frame with columns `package` and `n` counting the absolute
+#' number of times each package was installed.
+#' @param df Output of `fetch_install_invocations`.
+#' @seealso \code{\link{fetch_install_invocations}}
+#' @export
 popularity_by_package = function(df) {
   invocations = stringr::str_split(df$eventAction, " ")
   df$package = sapply(invocations, function(x) x[[1]])
   df %>% count(package, wt=totalEvents)
 }
 
+#' Describes how often a package was installed with a given option.
+#'
+#' Returns a data.frame with columns `package`, `option`, and `count`.
+#' If a package is installed with multiple options, it is counted as an
+#' installation for each of the options; grouping by package and summing counts
+#' will overestimate the total number of package installations.
+#'
+#' @param df Output of `fetch_install_invocations`.
+#' @seealso \code{\link{fetch_install_invocations}}
+#' @export
 install_invocations_by_package = function(df) {
   invocations = stringr::str_split(df$eventAction, " ")
   package_names = invocations %>%
