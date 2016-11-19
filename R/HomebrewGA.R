@@ -47,6 +47,22 @@ fetch_install_invocations = function(start.date="30daysAgo") {
   df
 }
 
+#' Fetch from GA a list and count of build failures.
+#' @export
+fetch_build_errors = function(start.date="30daysAgo") {
+  RGA::get_ga(
+    profileId=HOMEBREW_PROFILE_ID,
+    start.date=start.date,
+    end.date="yesterday",
+    metrics="ga:totalEvents",
+    dimensions="ga:eventCategory,ga:eventAction,ga:eventLabel",
+    sort="-ga:totalEvents",
+    filters="ga:eventCategory==BuildError",
+    samplingLevel="HIGHER_PRECISION",
+    include.empty.rows="FALSE"
+  )
+}
+
 #' Count the number of times each package was installed.
 #'
 #' Returns a data.frame with columns `package` and `n` counting the absolute
@@ -102,4 +118,16 @@ install_invocations_by_package = function(df) {
   option_col = options_by_package %>% sapply(function(x) names(x)) %>% unlist(use.names=FALSE)
   count_col = options_by_package %>% unlist(use.names=FALSE)
   data.frame(package=package_name_col, option=option_col, count=count_col)
+}
+
+#' Normalize macOS version string.
+#' @export
+normalize_macos_version = function(x) {
+  stringr::str_replace(x, ".*(10\\.\\d+(\\.\\d+)?)[^\\d]*", "\\1")
+}
+
+#' Extract the major and minor version from a version string.
+#' @export
+major_minor = function(x) {
+  stringr::str_replace(x, "^(\\d+\\.\\d+).*", "\\1")
 }
