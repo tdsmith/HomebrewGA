@@ -63,7 +63,7 @@ g = popularity %>%
   arrange(desc(failed_fraction)) %>%
   head(100) %>%
   mutate(package=factor(package, rev(package))) %>%
-  ggplot(aes(package, failed_fraction*100, fill=n)) +
+  ggplot(aes(package, failed_fraction*100, fill=log2(n))) +
     geom_bar(stat="identity") +
     scale_fill_viridis("Installs") +
     labs(y="% of installs that fail") +
@@ -88,3 +88,44 @@ build_errors %>%
     geom_bar(stat="identity", width=0.5) +
     coord_flip()
 ```
+
+```{r date_popularity}
+date_popularity = (function(df) {
+  invocations = stringr::str_split(df$eventAction, " ")
+  df$package = sapply(invocations, function(x) x[[1]])
+  df %>% count(date, package, wt=totalEvents)
+})(installs)
+
+date_popularity = left_join(
+  date_popularity,
+  build_errors %>%
+    select(date, package=eventAction, totalEvents) %>%
+    group_by(date, package) %>%
+    summarize(failures=sum(totalEvents))
+)
+```
+
+```{r explore_xz_date}
+to_plot = c("xz", "python", "go")
+commits = lapply(to_plot, function(x) {
+    dates = commits_since(x)
+    if(length(dates) == 0) {
+      data.frame()
+    } else {
+      data.frame(package=x, date=commits_since(x))
+    }
+  }) %>%
+  dplyr::bind_rows()
+
+date_popularity %>%
+  filter(package %in% to_plot) %>%
+  ggplot(aes(date, failures/n, color=package)) +
+    facet_grid(package~.) +
+    ylim(0, 0.1) +
+    geom_point() +
+    geom_line(alpha=0.3) +
+    geom_vline(mapping=aes(xintercept=as.numeric(date)), data=commits)
+```
+
+
+
