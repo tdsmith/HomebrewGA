@@ -10,9 +10,12 @@ LazyData: TRUE
 Imports:
     RGA,
     stringr,
-    dplyr
+    dplyr,
+    R.cache
 Suggests:
     knitr,
-    rmarkdown
+    rmarkdown,
+    ggplot2,
+    ggvis
 VignetteBuilder: knitr
 RoxygenNote: 5.0.1

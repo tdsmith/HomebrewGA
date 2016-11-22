@@ -27,15 +27,19 @@ authorize = function() {
     client.secret="_jq5IxkGszRUhHW_hM0hoDzC")
 }
 
-#' Fetch from GA a list and count of unique `install` invocations.
-#' @export
-fetch_install_invocations = function(start.date="30daysAgo") {
+#' Generate a cache token for today's analytics results.
+todays_cache_token = function() {
+  Sys.time() %>% as.POSIXlt(tz="UTC") %>% as.Date %>% as.character
+}
+
+private_fetch_install_invocations = function(
+  start.date, end.date, cache.token) {
   df = RGA::get_ga(
     profileId=HOMEBREW_PROFILE_ID,
     start.date=start.date,
-    end.date="yesterday",
+    end.date=end.date,
     metrics="ga:totalEvents",
-    dimensions="ga:eventCategory,ga:eventAction",
+    dimensions="ga:date,ga:eventCategory,ga:eventAction,ga:eventLabel",
     sort="-ga:totalEvents",
     filters="ga:eventCategory==install",
     samplingLevel="HIGHER_PRECISION",
@@ -47,19 +51,39 @@ fetch_install_invocations = function(start.date="30daysAgo") {
   df
 }
 
-#' Fetch from GA a list and count of build failures.
+#' Fetch from GA a list and count of unique `install` invocations.
 #' @export
-fetch_build_errors = function(start.date="30daysAgo") {
+fetch_install_invocations = function(start.date="30daysAgo", end.date="yesterday") {
+  R.cache::memoizedCall(
+    private_fetch_install_invocations,
+    start.date=start.date,
+    end.date=end.date,
+    cache.token=todays_cache_token()
+  )
+}
+
+private_fetch_build_errors = function(start.date, end.date, cache.token) {
   RGA::get_ga(
     profileId=HOMEBREW_PROFILE_ID,
     start.date=start.date,
-    end.date="yesterday",
+    end.date=end.date,
     metrics="ga:totalEvents",
-    dimensions="ga:eventCategory,ga:eventAction,ga:eventLabel",
+    dimensions="ga:date,ga:eventCategory,ga:eventAction,ga:eventLabel",
     sort="-ga:totalEvents",
     filters="ga:eventCategory==BuildError",
     samplingLevel="HIGHER_PRECISION",
     include.empty.rows="FALSE"
+  )
+}
+
+#' Fetch from GA a list and count of build failures.
+#' @export
+fetch_build_errors = function(start.date="30daysAgo", end.date="yesterday") {
+  R.cache::memoizedCall(
+    private_fetch_build_errors,
+    start.date=start.date,
+    end.date=end.date,
+    cache.token=todays_cache_token()
   )
 }
 
